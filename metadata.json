@@ -1,0 +1,6 @@
+{
+  "name": "PDF Tools Pro",
+  "description": "PDF Tools Pro – Free Online PDF Tools. Fast, secure, and modern PDF processing powered by the iLovePDF API.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
