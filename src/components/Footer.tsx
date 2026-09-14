@@ -5,12 +5,14 @@ interface FooterProps {
   onSelectTool: (toolId: string) => void;
   onGoHome: () => void;
   onOpenApiModal: () => void;
+  onOpenLegalModal: (type: 'privacy' | 'terms' | 'about' | 'contact') => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onSelectTool,
   onGoHome,
   onOpenApiModal,
+  onOpenLegalModal,
 }) => {
   return (
     <footer className="bg-zinc-900 text-zinc-400 text-xs sm:text-sm">
@@ -112,26 +114,43 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Security & System */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-4">
-              Security & Setup
+              Company & Legal
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={() => onSelectTool('protect')} className="hover:text-white transition-colors cursor-pointer">
-                  Protect PDF
+                <button 
+                  onClick={() => onOpenLegalModal('about')} 
+                  className="hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  About Us
                 </button>
               </li>
               <li>
-                <button onClick={() => onSelectTool('unlock')} className="hover:text-white transition-colors cursor-pointer">
-                  Unlock PDF
+                <button 
+                  onClick={() => onOpenLegalModal('contact')} 
+                  className="text-red-400 hover:text-red-300 font-semibold transition-colors cursor-pointer text-left"
+                >
+                  Contact Us
                 </button>
               </li>
               <li>
-                <button onClick={() => onSelectTool('repair')} className="hover:text-white transition-colors cursor-pointer">
-                  Repair PDF
+                <button 
+                  onClick={() => onOpenLegalModal('privacy')} 
+                  className="hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  Privacy Policy
                 </button>
               </li>
               <li>
-                <button onClick={onOpenApiModal} className="text-red-400 hover:text-red-300 font-semibold transition-colors cursor-pointer">
+                <button 
+                  onClick={() => onOpenLegalModal('terms')} 
+                  className="hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  Terms of Service
+                </button>
+              </li>
+              <li className="pt-2 border-t border-zinc-800">
+                <button onClick={onOpenApiModal} className="text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer text-left">
                   API Key Setup
                 </button>
               </li>
@@ -140,7 +159,13 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         <div className="pt-8 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-          <p>© {new Date().getFullYear()} PDF Tools Pro. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <p>© {new Date().getFullYear()} PDF Tools Pro. All rights reserved.</p>
+            <span className="hidden sm:inline text-zinc-700">•</span>
+            <button onClick={() => onOpenLegalModal('privacy')} className="hover:text-zinc-300 transition-colors">Privacy</button>
+            <button onClick={() => onOpenLegalModal('terms')} className="hover:text-zinc-300 transition-colors">Terms</button>
+            <button onClick={() => onOpenLegalModal('contact')} className="hover:text-zinc-300 transition-colors">Contact</button>
+          </div>
           <p className="flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5 text-zinc-400" />
             <span>Files are encrypted and securely erased immediately after processing.</span>

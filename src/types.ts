@@ -43,6 +43,17 @@ export interface ApiStatus {
   secretKeyConfigured: boolean;
   missing?: string[];
   notice?: string;
+  hasQuotes?: boolean;
+  isRender?: boolean;
+  environmentType?: 'render' | 'aistudio' | 'local';
+}
+
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
+  status?: number;
+  details?: string;
+  guidance?: string;
 }
 
 export interface ToolOptions {

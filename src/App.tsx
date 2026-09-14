@@ -10,6 +10,7 @@ import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { ApiStatusModal } from './components/ApiStatusModal';
 import { UnavailableToolModal } from './components/UnavailableToolModal';
+import { LegalModals, LegalModalType } from './components/LegalModals';
 
 export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<ToolCategory>('all');
@@ -18,6 +19,7 @@ export default function App() {
   const [unavailableTool, setUnavailableTool] = useState<ToolDefinition | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [legalModal, setLegalModal] = useState<LegalModalType>(null);
 
   // Fetch API status on mount
   const fetchStatus = async () => {
@@ -34,6 +36,24 @@ export default function App() {
 
   useEffect(() => {
     fetchStatus();
+
+    // Support direct URLs from sitemap / search engines (e.g., ?tool=merge or ?page=privacy)
+    const params = new URLSearchParams(window.location.search);
+    const toolParam = params.get('tool');
+    const pageParam = params.get('page');
+
+    if (toolParam) {
+      const match = ALL_TOOLS.find((t) => t.id === toolParam);
+      if (match) {
+        if (match.supportedByApi) {
+          setActiveTool(match);
+        } else {
+          setUnavailableTool(match);
+        }
+      }
+    } else if (pageParam && ['privacy', 'terms', 'about', 'contact'].includes(pageParam)) {
+      setLegalModal(pageParam as LegalModalType);
+    }
   }, []);
 
   // Handle selecting a tool
@@ -69,6 +89,7 @@ export default function App() {
         onSelectTool={handleSelectToolById}
         onGoHome={handleGoHome}
         activeToolId={activeTool?.id || null}
+        onOpenLegalModal={(type) => setLegalModal(type)}
       />
 
       {/* Main Content Area */}
@@ -121,6 +142,14 @@ export default function App() {
         onSelectTool={handleSelectToolById}
         onGoHome={handleGoHome}
         onOpenApiModal={() => setIsApiModalOpen(true)}
+        onOpenLegalModal={(type) => setLegalModal(type)}
+      />
+
+      {/* AdSense Legal Modals (Privacy, Terms, About, Contact) */}
+      <LegalModals
+        activeModal={legalModal}
+        onClose={() => setLegalModal(null)}
+        supportEmail="lomtegajendra2345@gmail.com"
       />
     </div>
   );

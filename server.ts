@@ -295,9 +295,79 @@ async function cleanupFiles(files: Express.Multer.File[]) {
   }
 }
 
+// Clean and sanitize environment variable values (handles quotes, accidental prefixes)
+function cleanKey(val?: string): string {
+  if (!val) return '';
+  let cleaned = val.trim();
+  // Strip enclosing quotes if user pasted with quotes in Render or .env
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  // Strip accidental "ILOVEPDF_PUBLIC_KEY=" or "ILOVEPDF_SECRET_KEY=" if pasted with variable name
+  if (cleaned.includes('=')) {
+    cleaned = cleaned.split('=').pop()?.trim() || cleaned;
+  }
+  return cleaned;
+}
+
+// Helper to extract clear error message from iLovePDF API failures
+function extractILovePDFError(error: any): { message: string; isAuthError: boolean; status?: number } {
+  const status = error?.response?.status;
+  const isAuthError = status === 401 || status === 403;
+  let apiMsg = '';
+
+  if (error?.response?.data) {
+    const data = error.response.data;
+    if (typeof data === 'string') {
+      apiMsg = data;
+    } else if (data.message) {
+      apiMsg = data.message;
+    } else if (data.error) {
+      apiMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+    }
+  }
+
+  if (!apiMsg && error?.message) {
+    apiMsg = error.message;
+  }
+
+  let finalMessage = apiMsg || 'An unexpected error occurred during document processing.';
+
+  if (isAuthError) {
+    finalMessage = `iLovePDF Authentication Failed (${status}): ${apiMsg || 'Invalid Public or Secret Key'}. Please check that your ILOVEPDF_PUBLIC_KEY and ILOVEPDF_SECRET_KEY match developer.ilovepdf.com without extra quotes or spaces.`;
+  }
+
+  return { message: finalMessage, isAuthError, status };
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
+
+  // Sitemap.xml direct endpoint for Google Search Console & Crawlers
+  app.get('/sitemap.xml', (_req: Request, res: Response) => {
+    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+    if (fs.existsSync(sitemapPath)) {
+      res.setHeader('Content-Type', 'application/xml');
+      res.sendFile(sitemapPath);
+    } else {
+      res.status(404).send('Sitemap not found');
+    }
+  });
+
+  // Robots.txt direct endpoint
+  app.get('/robots.txt', (_req: Request, res: Response) => {
+    const robotsPath = path.join(process.cwd(), 'public', 'robots.txt');
+    if (fs.existsSync(robotsPath)) {
+      res.setHeader('Content-Type', 'text/plain');
+      res.sendFile(robotsPath);
+    } else {
+      res.status(404).send('Robots.txt not found');
+    }
+  });
 
   // Health check endpoint
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -310,22 +380,74 @@ async function startServer() {
 
   // Server API configuration status (NEVER exposes secret key!)
   app.get('/api/status', (_req: Request, res: Response) => {
-    const publicKey = process.env.ILOVEPDF_PUBLIC_KEY?.trim() || '';
-    const secretKey = process.env.ILOVEPDF_SECRET_KEY?.trim() || '';
+    const rawPublic = process.env.ILOVEPDF_PUBLIC_KEY || '';
+    const rawSecret = process.env.ILOVEPDF_SECRET_KEY || '';
+
+    const publicKey = cleanKey(rawPublic);
+    const secretKey = cleanKey(rawSecret);
 
     const hasPublicKey = Boolean(publicKey && !publicKey.includes('MY_KEY') && publicKey.length > 5);
     const hasSecretKey = Boolean(secretKey && !secretKey.includes('MY_KEY') && secretKey.length > 5);
+    const hasQuotes = Boolean(
+      (rawPublic.startsWith('"') && rawPublic.endsWith('"')) ||
+      (rawSecret.startsWith('"') && rawSecret.endsWith('"'))
+    );
+    const isRender = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID);
 
     res.json({
       configured: hasPublicKey && hasSecretKey,
       publicKeyConfigured: hasPublicKey,
       secretKeyConfigured: hasSecretKey,
+      hasQuotes,
+      isRender,
+      environmentType: isRender ? 'render' : (process.env.K_SERVICE ? 'aistudio' : 'local'),
       missing: [
         ...(!hasPublicKey ? ['ILOVEPDF_PUBLIC_KEY'] : []),
         ...(!hasSecretKey ? ['ILOVEPDF_SECRET_KEY'] : []),
       ],
       notice: 'API keys are stored securely server-side only and never transmitted to the browser.',
     });
+  });
+
+  // Live connection test endpoint with real iLovePDF handshake
+  app.get('/api/test-connection', async (_req: Request, res: Response) => {
+    const rawPublic = process.env.ILOVEPDF_PUBLIC_KEY || '';
+    const rawSecret = process.env.ILOVEPDF_SECRET_KEY || '';
+
+    const publicKey = cleanKey(rawPublic);
+    const secretKey = cleanKey(rawSecret);
+
+    if (!publicKey || !secretKey || publicKey.includes('MY_KEY') || secretKey.includes('MY_KEY')) {
+      res.status(400).json({
+        success: false,
+        message: 'iLovePDF credentials missing on this server environment.',
+        guidance: 'Please configure ILOVEPDF_PUBLIC_KEY and ILOVEPDF_SECRET_KEY on this server.',
+      });
+      return;
+    }
+
+    try {
+      const api = new ILovePDFApi(publicKey, secretKey);
+      const testTask = api.newTask('merge');
+      await testTask.start();
+
+      res.json({
+        success: true,
+        message: 'Connection successful! iLovePDF authenticated and verified task initialization.',
+      });
+    } catch (err: any) {
+      console.error('[PDF Tools Pro] iLovePDF connection test error:', err);
+      const { message, isAuthError, status } = extractILovePDFError(err);
+      res.status(status || 500).json({
+        success: false,
+        status,
+        message,
+        details: err?.response?.data || err?.message,
+        guidance: isAuthError
+          ? 'Check developer.ilovepdf.com to ensure Public Key and Secret Key are not swapped or expired.'
+          : 'Check your network connection and iLovePDF service status.',
+      });
+    }
   });
 
   // Tools listing endpoint
@@ -362,9 +484,9 @@ async function startServer() {
         return;
       }
 
-      // Credentials verification
-      const publicKey = process.env.ILOVEPDF_PUBLIC_KEY?.trim();
-      const secretKey = process.env.ILOVEPDF_SECRET_KEY?.trim();
+      // Credentials verification with sanitization
+      const publicKey = cleanKey(process.env.ILOVEPDF_PUBLIC_KEY);
+      const secretKey = cleanKey(process.env.ILOVEPDF_SECRET_KEY);
 
       if (!publicKey || !secretKey || publicKey.includes('MY_KEY') || secretKey.includes('MY_KEY')) {
         await cleanupFiles(uploadedFiles);
@@ -533,19 +655,13 @@ async function startServer() {
         res.send(buffer);
       } catch (error: any) {
         console.error(`iLovePDF processing error for ${toolId}:`, error);
+        const { message, isAuthError, status } = extractILovePDFError(error);
 
-        // Extract clean error message
-        let errorMessage = 'An unexpected error occurred during document processing.';
-        if (error?.message) {
-          errorMessage = error.message;
-        } else if (typeof error === 'string') {
-          errorMessage = error;
-        }
-
-        res.status(500).json({
-          error: 'Processing failed',
-          message: errorMessage,
+        res.status(status || 500).json({
+          error: isAuthError ? 'Authentication Failed' : 'Processing Failed',
+          message,
           tool: tool.name,
+          details: error?.response?.data || error?.message,
         });
       } finally {
         // Securely delete temporary files after processing

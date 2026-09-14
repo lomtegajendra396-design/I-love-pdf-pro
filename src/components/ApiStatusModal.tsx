@@ -11,8 +11,10 @@ import {
   RefreshCw,
   Server,
   Cloud,
+  Zap,
+  HelpCircle,
 } from 'lucide-react';
-import { ApiStatus } from '../types';
+import { ApiStatus, ConnectionTestResult } from '../types';
 
 interface ApiStatusModalProps {
   isOpen: boolean;
@@ -29,8 +31,13 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
 
   if (!isOpen) return null;
+
+  const isRenderHost = typeof window !== 'undefined' && window.location.hostname.includes('render.com');
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -42,6 +49,25 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
     setIsRefreshing(true);
     await onRefreshStatus();
     setIsRefreshing(false);
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/test-connection');
+      const data = await res.json();
+      setTestResult(data);
+      await onRefreshStatus();
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: 'Could not connect to backend test endpoint.',
+        details: err.message,
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -67,14 +93,30 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
               </h3>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-              Backend credentials security and Render deployment setup
+              Backend credentials diagnostics and Render deployment status
             </p>
           </div>
         </div>
 
+        {/* Host Awareness Notice (Crucial for users testing in preview instead of Render URL) */}
+        {!isRenderHost && (
+          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 mb-6 text-xs text-amber-900">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Aap abhi Preview Window par hain ({currentHost})</p>
+                <p className="mt-1 leading-relaxed text-amber-800">
+                  Agar aapne API keys apne <strong>Render Dashboard</strong> me set ki hain, to woh keys aapki <strong>Live Render Website</strong> par apply hoti hain (jaise <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">https://&lt;your-app&gt;.onrender.com</code>). 
+                  Render wali live URL open karke wahan test karein!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Current Connection Status Box */}
         <div
-          className={`p-5 rounded-2xl border mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+          className={`p-5 rounded-2xl border mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
             apiStatus?.configured
               ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
               : 'bg-amber-50/70 border-amber-200 text-amber-950'
@@ -89,26 +131,77 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
             <div>
               <p className="font-bold text-sm">
                 {apiStatus?.configured
-                  ? 'iLovePDF Credentials Configured'
-                  : 'API Credentials Needed in Backend Environment'}
+                  ? 'iLovePDF Keys Detected in Server Environment'
+                  : 'API Keys Missing in This Server Environment'}
               </p>
               <p className="text-xs opacity-80 mt-0.5">
                 {apiStatus?.configured
-                  ? 'Your backend has valid API keys loaded. Document processing operations are active.'
-                  : 'Add ILOVEPDF_PUBLIC_KEY and ILOVEPDF_SECRET_KEY to your server to process documents.'}
+                  ? 'Server has both Public & Secret keys loaded. Click Test Connection to verify with iLovePDF.'
+                  : 'Add ILOVEPDF_PUBLIC_KEY and ILOVEPDF_SECRET_KEY in server environment variables.'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-semibold rounded-xl shrink-0 transition-all cursor-pointer shadow-xs disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-red-600' : ''}`} />
-            <span>Check Status</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-semibold rounded-xl shrink-0 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-red-600' : ''}`} />
+              <span>Refresh</span>
+            </button>
+
+            <button
+              onClick={handleTestConnection}
+              disabled={isTesting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl shrink-0 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+              <span>{isTesting ? 'Testing...' : 'Test Connection'}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Live Test Connection Result */}
+        {testResult && (
+          <div
+            className={`p-4 rounded-2xl border mb-6 text-xs transition-all ${
+              testResult.success
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                : 'bg-red-50 border-red-300 text-red-950'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              {testResult.success ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-1">
+                <p className="font-bold text-sm">
+                  {testResult.success ? 'iLovePDF Handshake Successful!' : 'iLovePDF Handshake Failed'}
+                </p>
+                <p className="leading-relaxed">{testResult.message}</p>
+                {testResult.guidance && (
+                  <p className="font-medium text-zinc-700 mt-1">
+                    👉 <strong>Remedy:</strong> {testResult.guidance}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quotes Warning if detected */}
+        {apiStatus?.hasQuotes && (
+          <div className="p-3.5 rounded-xl bg-orange-50 border border-orange-200 mb-6 text-xs text-orange-900 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+            <div>
+              <strong>Quotes warning:</strong> Extra quotation marks were detected around your keys. Ensure you do NOT type quotation marks (<code className="bg-orange-100 px-1 py-0.5 rounded font-mono">"..."</code>) in the Render Environment values.
+            </div>
+          </div>
+        )}
 
         {/* Zero Client Exposure Security Callout */}
         <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 mb-6 flex items-start gap-3 text-xs text-zinc-600">
@@ -130,7 +223,7 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
             <div className="overflow-hidden">
               <span className="font-mono font-bold text-zinc-900">ILOVEPDF_PUBLIC_KEY</span>
               <p className="text-zinc-500 text-[11px] truncate">
-                Public project key from iLovePDF developer console
+                Starts with <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">project_public_...</code>
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -158,7 +251,7 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
             <div className="overflow-hidden">
               <span className="font-mono font-bold text-zinc-900">ILOVEPDF_SECRET_KEY</span>
               <p className="text-zinc-500 text-[11px] truncate">
-                Secret project key (JWT authentication engine)
+                Starts with <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">secret_key_...</code>
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -182,43 +275,39 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
           </div>
         </div>
 
-        {/* Render Deployment & Setup Guide */}
+        {/* Render Troubleshooting Checklist */}
         <div className="space-y-3 mb-6">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
-            <Cloud className="w-4 h-4 text-zinc-500" />
-            <span>Deploying to Render</span>
+            <HelpCircle className="w-4 h-4 text-red-600" />
+            <span>Agar Render par "Failed" aa raha hai to ye 4 baatein check karein:</span>
           </h4>
 
-          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 text-xs text-zinc-600 space-y-2.5">
-            <p>
-              1. Get your free keys at{' '}
-              <a
-                href="https://developer.ilovepdf.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-red-600 font-semibold underline inline-flex items-center gap-0.5"
-              >
-                developer.ilovepdf.com <ExternalLink className="w-3 h-3" />
-              </a>{' '}
-              (includes 250 free tasks per month).
-            </p>
-            <p>
-              2. In your <strong>Render Dashboard</strong>, navigate to your Web Service and select the <strong>Environment</strong> tab.
-            </p>
-            <p>
-              3. Add <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_PUBLIC_KEY</code> and <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_SECRET_KEY</code> with your keys.
-            </p>
-            <p>
-              4. Render automatically supplies <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">PORT</code>, which our server binds to automatically.
-            </p>
+          <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 text-xs text-zinc-700 space-y-2.5">
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-red-600 shrink-0">1.</span>
+              <p>
+                <strong>Keys Swap to nahi hui?</strong> Render me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_PUBLIC_KEY</code> me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">project_public_...</code> hona chahiye aur <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_SECRET_KEY</code> me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">secret_key_...</code> hona chahiye.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-red-600 shrink-0">2.</span>
+              <p>
+                <strong>No quotes or extra spaces:</strong> Key ke aage-peeche quotation marks (<code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">"..."</code>) ya space mat daalein.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-red-600 shrink-0">3.</span>
+              <p>
+                <strong>Render Deploy status "Live":</strong> Render dashboard me check karein ki naya build complete hoke status <strong>"Live" (Green)</strong> hai ya nahi. Agar deploy chal raha hai, to wait karein.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-red-600 shrink-0">4.</span>
+              <p>
+                <strong>iLovePDF Account Verification:</strong> <a href="https://developer.ilovepdf.com" target="_blank" rel="noreferrer" className="text-red-600 underline font-semibold">developer.ilovepdf.com</a> par login karke check karein ki aapka email verified hai aur monthly free tasks (250 tasks) available hain.
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* Local .env instructions */}
-        <div className="p-4 bg-zinc-900 rounded-2xl text-zinc-200 text-xs font-mono mb-6">
-          <p className="text-zinc-400 mb-2">// In your root .env file:</p>
-          <p className="text-emerald-400">ILOVEPDF_PUBLIC_KEY=project_public_xxxxxxxxxxxx</p>
-          <p className="text-emerald-400">ILOVEPDF_SECRET_KEY=secret_key_xxxxxxxxxxxx</p>
         </div>
 
         {/* Modal Actions */}

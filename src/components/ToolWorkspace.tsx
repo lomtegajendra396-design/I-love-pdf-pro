@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Globe,
   FileType,
+  Shield,
 } from 'lucide-react';
 import { ToolDefinition, UploadedFileItem, ToolOptions, ApiStatus } from '../types';
 import { ToolIcon } from './IconHelper';
@@ -374,8 +375,26 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           </div>
         </div>
 
+        {/* Unsupported Tool Notice */}
+        {!tool.supportedByApi && (
+          <div className="mt-6 p-5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 flex flex-col sm:flex-row items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs sm:text-sm">
+                <p className="font-bold text-amber-900">iLovePDF Developer API Limitation</p>
+                <p className="mt-1 text-amber-800 leading-relaxed">
+                  {tool.unsupportedReason || 'iLovePDF developer REST API me yeh specific tool endpoint standard developer account ke liye available nahi hai.'}
+                </p>
+                <p className="mt-2 text-zinc-600 text-xs">
+                  💡 <strong>Active Tools:</strong> Aap <strong>Word to PDF</strong>, <strong>Excel to PDF</strong>, <strong>JPG to PDF</strong>, <strong>PDF to JPG</strong>, <strong>Merge</strong>, <strong>Compress</strong>, <strong>Protect/Unlock</strong> sahit 18+ tools direct use kar sakte hain!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Missing Credentials Alert Banner */}
-        {(!apiStatus?.configured || isMissingCredentials) && (
+        {tool.supportedByApi && (!apiStatus?.configured || isMissingCredentials) && (
           <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -1047,12 +1066,27 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
               {/* Error Message Display */}
               {errorMsg && (
-                <div className="mt-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-bold">Execution Error</p>
-                    <p className="mt-0.5 text-xs text-red-800 leading-relaxed">{errorMsg}</p>
+                <div className="mt-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-bold">Execution Error</p>
+                      <p className="mt-0.5 text-xs text-red-800 leading-relaxed">{errorMsg}</p>
+                    </div>
                   </div>
+                  {(isMissingCredentials ||
+                    errorMsg.toLowerCase().includes('credential') ||
+                    errorMsg.toLowerCase().includes('authentication') ||
+                    errorMsg.toLowerCase().includes('key') ||
+                    errorMsg.toLowerCase().includes('failed (401)')) && (
+                    <button
+                      type="button"
+                      onClick={onOpenApiModal}
+                      className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl shrink-0 transition-colors cursor-pointer self-start sm:self-center"
+                    >
+                      Check API Status
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1070,15 +1104,22 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                   id="process-tool-btn"
                   type="button"
                   disabled={
+                    !tool.supportedByApi ||
                     isProcessing ||
                     (tool.id !== 'html-to-pdf' && files.length < tool.minFiles) ||
                     (tool.id === 'html-to-pdf' && !files.length && !htmlUrl.trim())
                   }
                   onClick={handleProcess}
-                  className="w-full sm:w-auto px-8 py-3.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:pointer-events-none text-white font-bold rounded-2xl shadow-sm shadow-red-600/30 flex items-center justify-center gap-2 text-sm sm:text-base transition-all cursor-pointer"
+                  className={`w-full sm:w-auto px-8 py-3.5 text-white font-bold rounded-2xl shadow-sm flex items-center justify-center gap-2 text-sm sm:text-base transition-all ${
+                    !tool.supportedByApi
+                      ? 'bg-zinc-400 cursor-not-allowed opacity-60'
+                      : 'bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:pointer-events-none shadow-red-600/30 cursor-pointer'
+                  }`}
                 >
                   <span>
-                    {tool.id === 'merge'
+                    {!tool.supportedByApi
+                      ? `${tool.name} (API Restricted)`
+                      : tool.id === 'merge'
                       ? `Merge ${files.length} PDFs`
                       : tool.id === 'compress'
                       ? 'Compress PDF Now'
@@ -1105,6 +1146,52 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
               <span>{feat}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* AdSense SEO & Informational Guide Section */}
+      <div className="bg-white rounded-3xl border border-zinc-200 p-6 sm:p-8 space-y-6">
+        <div>
+          <h3 className="text-lg sm:text-xl font-bold text-zinc-900 mb-2">
+            How to use {tool.name} Online
+          </h3>
+          <p className="text-zinc-600 text-sm leading-relaxed">
+            {tool.description} Follow these simple steps to process your document quickly and securely:
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
+            <span className="w-6 h-6 rounded-full bg-red-600 text-white font-bold inline-flex items-center justify-center text-xs mb-2">1</span>
+            <h4 className="font-bold text-zinc-900 mb-1">Select or Drop Files</h4>
+            <p className="text-zinc-600 text-xs leading-relaxed">
+              Upload your document directly from your device storage or drag and drop it into the designated box above.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
+            <span className="w-6 h-6 rounded-full bg-red-600 text-white font-bold inline-flex items-center justify-center text-xs mb-2">2</span>
+            <h4 className="font-bold text-zinc-900 mb-1">Configure Settings</h4>
+            <p className="text-zinc-600 text-xs leading-relaxed">
+              Adjust tool options, compression level, rotation angles, or passwords as needed for your specific task.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
+            <span className="w-6 h-6 rounded-full bg-red-600 text-white font-bold inline-flex items-center justify-center text-xs mb-2">3</span>
+            <h4 className="font-bold text-zinc-900 mb-1">Instant Download</h4>
+            <p className="text-zinc-600 text-xs leading-relaxed">
+              Click process to trigger the secure cloud conversion. Your finalized document will download automatically.
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-zinc-100 text-xs text-zinc-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <p className="flex items-center gap-1.5">
+            <Shield className="w-4 h-4 text-emerald-600" />
+            <span><strong>100% Secure & Confidential:</strong> All files are encrypted using TLS 1.3 and wiped immediately.</span>
+          </p>
+          <span className="text-zinc-400">Powered by iLovePDF Cloud Engine</span>
         </div>
       </div>
     </div>

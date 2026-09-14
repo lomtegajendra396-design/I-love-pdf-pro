@@ -8,6 +8,7 @@ interface HeaderProps {
   onSelectTool: (toolId: string) => void;
   onGoHome: () => void;
   activeToolId: string | null;
+  onOpenLegalModal: (type: 'privacy' | 'terms' | 'about' | 'contact') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTool,
   onGoHome,
   activeToolId,
+  onOpenLegalModal,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-zinc-200">
@@ -90,6 +92,12 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               JPG to PDF
+            </button>
+            <button
+              onClick={() => onOpenLegalModal('contact')}
+              className="px-3 py-1.5 rounded-lg transition-colors hover:text-zinc-900 hover:bg-zinc-100"
+            >
+              Contact
             </button>
           </nav>
 
