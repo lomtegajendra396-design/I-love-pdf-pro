@@ -275,36 +275,42 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
           </div>
         </div>
 
-        {/* Render Troubleshooting Checklist */}
+        {/* Deployment Instructions for Cloud Run & Render */}
         <div className="space-y-3 mb-6">
           <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
-            <HelpCircle className="w-4 h-4 text-red-600" />
-            <span>Agar Render par "Failed" aa raha hai to ye 4 baatein check karein:</span>
+            <Cloud className="w-4 h-4 text-red-600" />
+            <span>Google Cloud Run Deployment Instructions</span>
           </h4>
 
           <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 text-xs text-zinc-700 space-y-2.5">
             <div className="flex items-start gap-2">
               <span className="font-bold text-red-600 shrink-0">1.</span>
               <p>
-                <strong>Keys Swap to nahi hui?</strong> Render me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_PUBLIC_KEY</code> me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">project_public_...</code> hona chahiye aur <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_SECRET_KEY</code> me <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">secret_key_...</code> hona chahiye.
+                <strong>Google Cloud Console:</strong> Go to <a href="https://console.cloud.google.com/run" target="_blank" rel="noreferrer" className="text-red-600 underline font-semibold">Cloud Run</a> and click <strong>"Create Service"</strong> (or deploy via GitHub repo).
               </p>
             </div>
             <div className="flex items-start gap-2">
               <span className="font-bold text-red-600 shrink-0">2.</span>
               <p>
-                <strong>No quotes or extra spaces:</strong> Key ke aage-peeche quotation marks (<code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">"..."</code>) ya space mat daalein.
+                <strong>Authentication:</strong> Under "Authentication", check <strong>"Allow unauthenticated invocations"</strong> so public users can access the website.
               </p>
             </div>
             <div className="flex items-start gap-2">
               <span className="font-bold text-red-600 shrink-0">3.</span>
               <p>
-                <strong>Render Deploy status "Live":</strong> Render dashboard me check karein ki naya build complete hoke status <strong>"Live" (Green)</strong> hai ya nahi. Agar deploy chal raha hai, to wait karein.
+                <strong>Environment Variables:</strong> Under <em>"Containers, Networking, Security" &gt; "Variables &amp; Secrets"</em>, add:
+                <br />
+                • <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_PUBLIC_KEY</code> = <span className="text-zinc-600">your public key</span>
+                <br />
+                • <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">ILOVEPDF_SECRET_KEY</code> = <span className="text-zinc-600">your secret key</span>
+                <br />
+                • <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">NODE_ENV</code> = <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">production</code>
               </p>
             </div>
             <div className="flex items-start gap-2">
               <span className="font-bold text-red-600 shrink-0">4.</span>
               <p>
-                <strong>iLovePDF Account Verification:</strong> <a href="https://developer.ilovepdf.com" target="_blank" rel="noreferrer" className="text-red-600 underline font-semibold">developer.ilovepdf.com</a> par login karke check karein ki aapka email verified hai aur monthly free tasks (250 tasks) available hain.
+                <strong>Port Configuration:</strong> Container listens automatically on <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">process.env.PORT</code> (default 8080 on Cloud Run, 3000 in AI Studio) bound to <code className="bg-zinc-200 px-1 py-0.5 rounded font-mono">0.0.0.0</code>.
               </p>
             </div>
           </div>

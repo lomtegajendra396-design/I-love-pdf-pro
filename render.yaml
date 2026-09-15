@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pdf-tools-pro
+    runtime: node
+    plan: free
+    region: singapore # Closest to India for fast speed
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ILOVEPDF_PUBLIC_KEY
+        sync: false
+      - key: ILOVEPDF_SECRET_KEY
+        sync: false

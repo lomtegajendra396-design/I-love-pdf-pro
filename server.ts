@@ -347,6 +347,19 @@ async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
 
+  // CORS and security headers for API requests
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+      return;
+    }
+    next();
+  });
+
   // Sitemap.xml direct endpoint for Google Search Console & Crawlers
   app.get('/sitemap.xml', (_req: Request, res: Response) => {
     const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
@@ -592,17 +605,28 @@ async function startServer() {
           }
         } else if (toolId === 'watermark') {
           processParams.mode = 'text';
-          processParams.text = req.body.text || 'CONFIDENTIAL';
+          processParams.text = req.body.watermark_text || req.body.text || 'CONFIDENTIAL';
           processParams.vertical_position = req.body.vertical_position || 'middle';
           processParams.horizontal_position = req.body.horizontal_position || 'center';
           if (req.body.font_size) processParams.font_size = parseInt(req.body.font_size, 10);
           if (req.body.font_family) processParams.font_family = req.body.font_family;
           if (req.body.font_color) processParams.font_color = req.body.font_color;
-          if (req.body.rotation) processParams.rotation = parseInt(req.body.rotation, 10);
+          const rotationVal = req.body.watermark_rotation || req.body.rotation;
+          if (rotationVal) processParams.rotation = parseInt(rotationVal, 10);
           if (req.body.transparency) processParams.transparency = parseInt(req.body.transparency, 10);
         } else if (toolId === 'page-numbers') {
-          processParams.vertical_position = req.body.vertical_position || 'bottom';
-          processParams.horizontal_position = req.body.horizontal_position || 'right';
+          // Parse page_position like 'bottom-right'
+          let vPos = req.body.vertical_position || 'bottom';
+          let hPos = req.body.horizontal_position || 'right';
+          if (req.body.page_position && typeof req.body.page_position === 'string') {
+            const parts = req.body.page_position.split('-');
+            if (parts.length === 2) {
+              vPos = parts[0];
+              hPos = parts[1];
+            }
+          }
+          processParams.vertical_position = vPos;
+          processParams.horizontal_position = hPos;
           if (req.body.starting_number) processParams.starting_number = parseInt(req.body.starting_number, 10);
           if (req.body.pages) processParams.pages = req.body.pages;
         } else if (toolId === 'protect') {
