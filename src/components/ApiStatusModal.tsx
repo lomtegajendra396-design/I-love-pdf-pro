@@ -15,6 +15,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { ApiStatus, ConnectionTestResult } from '../types';
+import { buildApiUrl, getSavedBackendUrl, setCustomBackendUrl } from '../utils/api';
 
 interface ApiStatusModalProps {
   isOpen: boolean;
@@ -33,10 +34,14 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
+  const [customBackend, setCustomBackend] = useState<string>(getSavedBackendUrl());
+  const [backendSaveMsg, setBackendSaveMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const isRenderHost = typeof window !== 'undefined' && window.location.hostname.includes('render.com');
+  const isCloudRunHost = typeof window !== 'undefined' && window.location.hostname.includes('run.app');
+  const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const handleCopy = (text: string, id: string) => {
@@ -51,11 +56,18 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
     setIsRefreshing(false);
   };
 
+  const handleSaveBackend = async () => {
+    setCustomBackendUrl(customBackend);
+    setBackendSaveMsg('Saved! Refreshing status...');
+    await onRefreshStatus();
+    setTimeout(() => setBackendSaveMsg(null), 3000);
+  };
+
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch('/api/test-connection');
+      const res = await fetch(buildApiUrl('/api/test-connection'));
       const data = await res.json();
       setTestResult(data);
       await onRefreshStatus();
@@ -64,6 +76,9 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
         success: false,
         message: 'Could not connect to backend test endpoint.',
         details: err.message,
+        guidance: isGitHubPages
+          ? 'GitHub Pages only serves static files. If your backend is deployed on Google Cloud Run or Render, enter its full URL below.'
+          : 'Make sure your Node.js backend server is running and accessible.',
       });
     } finally {
       setIsTesting(false);
@@ -98,16 +113,47 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({
           </div>
         </div>
 
-        {/* Host Awareness Notice (Crucial for users testing in preview instead of Render URL) */}
-        {!isRenderHost && (
+        {/* Host Awareness Notice */}
+        {isGitHubPages && (
+          <div className="p-4 rounded-2xl bg-blue-50/90 border border-blue-200 mb-6 text-xs text-blue-900">
+            <div className="flex items-start gap-2.5">
+              <Cloud className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="w-full space-y-2">
+                <p className="font-bold text-sm">GitHub Pages Static Deployment Active</p>
+                <p className="leading-relaxed text-blue-800">
+                  GitHub Pages hosts your static React frontend (at <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">/I-love-pdf-pro/</code>). To execute live PDF transformations using your iLovePDF keys, connect your deployed Google Cloud Run or Render backend API:
+                </p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <input
+                    type="url"
+                    placeholder="https://your-backend-app.run.app (or onrender.com)"
+                    value={customBackend}
+                    onChange={(e) => setCustomBackend(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-white border border-blue-200 rounded-xl text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleSaveBackend}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-colors shrink-0 cursor-pointer"
+                  >
+                    Connect Backend
+                  </button>
+                </div>
+                {backendSaveMsg && (
+                  <p className="text-emerald-700 font-semibold">{backendSaveMsg}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isGitHubPages && !isRenderHost && !isCloudRunHost && (
           <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 mb-6 text-xs text-amber-900">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Aap abhi Preview Window par hain ({currentHost})</p>
+                <p className="font-bold">Current Environment: {currentHost}</p>
                 <p className="mt-1 leading-relaxed text-amber-800">
-                  Agar aapne API keys apne <strong>Render Dashboard</strong> me set ki hain, to woh keys aapki <strong>Live Render Website</strong> par apply hoti hain (jaise <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">https://&lt;your-app&gt;.onrender.com</code>). 
-                  Render wali live URL open karke wahan test karein!
+                  When deployed to Google Cloud Run, Render, or GitHub Pages, your API keys configured in the server environment will be utilized automatically.
                 </p>
               </div>
             </div>

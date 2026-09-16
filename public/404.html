@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Tools Pro – Redirecting...</title>
+    <script>
+      // Single Page Application redirect for GitHub Pages
+      // Redirects 404s back to repository base path preserving path and query string
+      const segmentCount = 1; // for /I-love-pdf-pro/
+      const location = window.location;
+      location.replace(
+        location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') +
+        location.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?p=/' +
+        location.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+        (location.search ? '&q=' + location.search.slice(1).replace(/&/g, '~and~') : '') +
+        location.hash
+      );
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to <a href="/I-love-pdf-pro/">PDF Tools Pro</a>...</p>
+  </body>
+</html>

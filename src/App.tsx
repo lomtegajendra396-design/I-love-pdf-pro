@@ -11,6 +11,7 @@ import { Footer } from './components/Footer';
 import { ApiStatusModal } from './components/ApiStatusModal';
 import { UnavailableToolModal } from './components/UnavailableToolModal';
 import { LegalModals, LegalModalType } from './components/LegalModals';
+import { buildApiUrl } from './utils/api';
 
 export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<ToolCategory>('all');
@@ -24,7 +25,7 @@ export default function App() {
   // Fetch API status on mount
   const fetchStatus = async () => {
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch(buildApiUrl('/api/status'));
       if (res.ok) {
         const data = await res.json();
         setApiStatus(data);
@@ -37,10 +38,26 @@ export default function App() {
   useEffect(() => {
     fetchStatus();
 
-    // Support direct URLs from sitemap / search engines (e.g., ?tool=merge or ?page=privacy)
+    // Support direct URLs from sitemap / search engines / GitHub Pages 404 redirects
     const params = new URLSearchParams(window.location.search);
-    const toolParam = params.get('tool');
-    const pageParam = params.get('page');
+    
+    // Check if coming from GitHub Pages 404 handler (?p=/...&q=...)
+    let toolParam = params.get('tool');
+    let pageParam = params.get('page');
+
+    const redirectPath = params.get('p');
+    const redirectQuery = params.get('q');
+    if (redirectQuery) {
+      const restoredParams = new URLSearchParams(redirectQuery.replace(/~and~/g, '&'));
+      if (!toolParam) toolParam = restoredParams.get('tool');
+      if (!pageParam) pageParam = restoredParams.get('page');
+    }
+    if (redirectPath && !toolParam) {
+      const pathClean = redirectPath.replace(/^\/+/, '').split('/')[0];
+      if (pathClean) {
+        toolParam = pathClean;
+      }
+    }
 
     if (toolParam) {
       const match = ALL_TOOLS.find((t) => t.id === toolParam);

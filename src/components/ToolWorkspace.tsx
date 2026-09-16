@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ToolDefinition, UploadedFileItem, ToolOptions, ApiStatus } from '../types';
 import { ToolIcon } from './IconHelper';
+import { buildApiUrl } from '../utils/api';
 
 interface ToolWorkspaceProps {
   tool: ToolDefinition;
@@ -273,7 +274,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
         setUploadProgress((prev) => (prev < 85 ? prev + 10 : prev));
       }, 500);
 
-      const response = await fetch(`/api/process/${tool.id}`, {
+      const response = await fetch(buildApiUrl(`/api/process/${tool.id}`), {
         method: 'POST',
         body: formData,
       });
